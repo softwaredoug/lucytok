@@ -5,9 +5,9 @@ import string
 import enum
 import Stemmer
 import logging
-from porter import PorterStemmer
 from functools import partial, lru_cache
-from asciifold import unicode_to_ascii
+from lucytok.porter import PorterStemmer
+from lucytok.asciifold import unicode_to_ascii
 
 
 logger = logging.getLogger(__name__)

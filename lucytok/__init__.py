@@ -1,4 +1,4 @@
-from tokenizer import tokenizer_from_str
+from lucytok.tokenizer import tokenizer_from_str
 
 
 #  |- ASCII fold (a) or not (N)
