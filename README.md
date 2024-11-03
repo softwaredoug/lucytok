@@ -48,7 +48,7 @@ correspond to their [Elasticsearch counterparts](https://www.elastic.co/guide/en
 #  |||
 # "NsN|NNN|NNN"
 #      ||| |||
-#      ||| |||- Porter stem vs (1) vs (2) vs N/0 for none
+#      ||| |||- Porter stem version1 (1) version2 (2) vs N/0 for none
 #      ||| ||- Blank out stopwords (s) or not (N)
 #      ||| |- Lowercase (l) or not (N)
 #      |||- Split on letter/number transitions (n) or not (N)
