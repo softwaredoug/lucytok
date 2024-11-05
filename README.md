@@ -11,8 +11,8 @@ porter stemming, English stopwords, etc.
 Creating a tokenizer close to Elasticsearch's default english analyzer
 
 ```
-from lucytok import tokenizer
-es_english = tokenizer("Nsp|NNN|ls1")
+from lucytok import english
+es_english = english("Nsp|NNN|lsN1")
 tokenized = es_english("The quick brown fox jumps over the lazy døg")
 print(tokenized)
 ```
@@ -26,8 +26,8 @@ Outputs
 Make a tokenizer with ASCII folding...
 
 ```
-from lucytok import tokenizer
-es_english_folded = tokenizer("asp|NNN|ls1")
+from lucytok import english
+es_english_folded = english("asp|NNN|lsN1")
 print(es_english_folded("The quick brown fox jumps over the lazy døg"))
 ```
 
