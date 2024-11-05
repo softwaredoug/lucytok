@@ -8,6 +8,7 @@ import logging
 from functools import partial, lru_cache
 from lucytok.porter import PorterStemmer
 from lucytok.asciifold import unicode_to_ascii
+from lucytok.plurals import plural_to_root
 
 
 logger = logging.getLogger(__name__)
@@ -143,6 +144,7 @@ def tokenizer(text: str,
               lowercase: bool,
               remove_possessive: bool,
               stopwords_to_char: Optional[str],
+              irregular_plural: bool,
               porter_version: Optional[int]) -> List[str]:
     if ascii_folding:
         text = fold_to_ascii(text)
@@ -177,6 +179,9 @@ def tokenizer(text: str,
         tokens = [token if token.lower() not in elasticsearch_english_stopwords
                   else stopwords_to_char for token in tokens]
 
+    if irregular_plural:
+        tokens = [plural_to_root(token) for token in tokens]
+
     # Stem with Porter stemmer version if specified
     if porter_version == 1:
         tokens = [porterv1.stem(token) for token in tokens]
@@ -194,6 +199,7 @@ def tokenizer_factory(ascii_folding: bool,
                       remove_possessive: bool,
                       lowercase: bool,
                       stopwords_to_char: Optional[str],
+                      irregular_plural: bool,
                       porter_version: Optional[int]) -> partial:
 
     logger.info("***")
@@ -206,6 +212,7 @@ def tokenizer_factory(ascii_folding: bool,
     logger.info(f"SplitOnNum:{split_on_num}")
     logger.info(f"Lowercase:{lowercase}")
     logger.info(f"StopwordsToChar:{stopwords_to_char}")
+    logger.info(f"IrregularPlural:{irregular_plural}")
     logger.info(f"PorterVersion:{porter_version}")
     tok_func = partial(tokenizer,
                        ascii_folding=ascii_folding,
@@ -216,6 +223,7 @@ def tokenizer_factory(ascii_folding: bool,
                        lowercase=lowercase,
                        remove_possessive=remove_possessive,
                        stopwords_to_char=stopwords_to_char,
+                       irregular_plural=irregular_plural,
                        porter_version=porter_version)
 
     test_string = "MaryHad a little_lamb whose 1920s 12fleeceYards was supposedly white. The lamb's fleece was actually black..."
@@ -232,8 +240,8 @@ def tokenizer_from_str(tok_str):
     if tok_str.count('|') != 2:
         raise ValueError("Tokenizer string must have 2 '|' characters separiting ascii folding,tokenizer,posessive|punc,case,letter->num|lowercase,stopowords,stemmer")
     tok_str = tok_str.replace("|", "")
-    if len(tok_str) != 9:
-        raise ValueError("Tokenizer string must be 9 characters long")
+    if len(tok_str) != 10:
+        raise ValueError("Tokenizer string must be 10 characters long")
     else:
         if tok_str[0] not in 'aN':
             raise ValueError(f"0th character must be either 'a' (ascii folding) or 'N' (no ascii folding) -- you passed {tok_str[0]}")
@@ -251,9 +259,11 @@ def tokenizer_from_str(tok_str):
             raise ValueError(f"6th character must be either 'l' (lowercase) or 'N' (don't lowercase) -- you passed {tok_str[6]}")
         if tok_str[7] not in 'sN':
             raise ValueError(f"7th character must be either 's' (stopwords to char) or 'N' (don't stopwords to char) -- you passed {tok_str[7]}")
-        if tok_str[8] not in '12N':
-            raise ValueError("8th character must be either '1' (porter version 1), '2' (porter version 2), or 'N' (no stemming) -- you passed {tok_str[8]}")
-        porter_version = int(tok_str[8]) if tok_str[8] != 'N' else None
+        if tok_str[8] not in 'pN':
+            raise ValueError("8th character must be either 'p' normalize irregular plurals , 'N' (do nothing) -- you passed {tok_str[8]}")
+        if tok_str[9] not in '12N':
+            raise ValueError("8th character must be either '1' (porter version 1), '2' (porter version 2), or 'N' (no stemming) -- you passed {tok_str[9]}")
+        porter_version = int(tok_str[9]) if tok_str[9] != 'N' else None
 
         return tokenizer_factory(
             tok_str[0] == 'a',
@@ -264,6 +274,7 @@ def tokenizer_from_str(tok_str):
             split_on_num=tok_str[5] == 'n',
             lowercase=tok_str[6] == 'l',
             stopwords_to_char='_' if tok_str[7] == 's' else None,
+            irregular_plural=tok_str[8] == 'p',
             porter_version=porter_version
         )
 
@@ -281,8 +292,9 @@ def every_tokenizer_str():
                         for poss in ['p', 'N']:
                             for lowercase in ['l', 'N']:
                                 for stop in ['s', 'N']:
-                                    for stem in ['1', '2', 'N']:
-                                        yield f"{ascii_fold}{tok}{poss}|{punctuation}{case}{num}|{lowercase}{stop}{stem}"
+                                    for irreg in ['p', 'N']:
+                                        for stem in ['1', '2', 'N']:
+                                            yield f"{ascii_fold}{tok}{poss}|{punctuation}{case}{num}|{lowercase}{stop}{irreg}{stem}"
 
 
 def every_tokenizer():
@@ -304,56 +316,59 @@ def every_tokenizer():
 
 
 def test():
-    std_tokenizer = tokenizer_from_str("NsN|NNN|lNN")
-    ws_tokenizer = tokenizer_from_str("NwN|NNN|lNN")
+    std_tokenizer = tokenizer_from_str("NsN|NNN|lNNN")
+    ws_tokenizer = tokenizer_from_str("NwN|NNN|lNNN")
     assert std_tokenizer('👍👎') == ['👍', '👎']
     assert ws_tokenizer('👍👎') == ['👍👎']
 
-    ws_split_punct_tokenizer = tokenizer_from_str("NwN|pNN|lNN")
+    ws_split_punct_tokenizer = tokenizer_from_str("NwN|pNN|lNNN")
     assert ws_tokenizer('Mary-had a little_lamb') == ['mary-had', 'a', 'little_lamb']
     assert ws_split_punct_tokenizer('Mary-had a little_lamb') == ['mary', 'had', 'a', 'little', 'lamb']
 
-    ascii_fold = tokenizer_from_str("asN|NNN|lNN")
-    no_ascii_fold = tokenizer_from_str("NsN|NNN|lNN")
+    ascii_fold = tokenizer_from_str("asN|NNN|lNNN")
+    no_ascii_fold = tokenizer_from_str("NsN|NNN|lNNN")
     assert ascii_fold("René") == ["rene"]
     assert no_ascii_fold("René") == ["rené"]
     assert (ascii_fold("àáâãäåçèéêëìíîïðñòóôõöøùúûüýþÿ")
             == ['aaaaaaceeeeiiiidnoooooouuuuyty'])
 
-    split_on_case_change = tokenizer_from_str("NsN|NcN|lNN")
-    no_split_on_case_str = tokenizer_from_str("NsN|NNN|lNN")
+    split_on_case_change = tokenizer_from_str("NsN|NcN|lNNN")
+    no_split_on_case_str = tokenizer_from_str("NsN|NNN|lNNN")
     assert no_split_on_case_str("fooBar") == ["foobar"]
     assert split_on_case_change("fooBar") == ["foo", "bar"]
 
-    porter1 = tokenizer_from_str("NsN|NNN|lN1")
-    porter2 = tokenizer_from_str("NsN|NNN|lN2")
-    no_stem = tokenizer_from_str("NsN|NNN|lNN")
+    porter1 = tokenizer_from_str("NsN|NNN|lNN1")
+    porter2 = tokenizer_from_str("NsN|NNN|lNN2")
+    no_stem = tokenizer_from_str("NsN|NNN|lNNN")
     assert porter1("1920s") == ["1920"]
     assert porter2("1920s") == ["1920s"]
     assert no_stem("running") == ["running"]
 
-    stopwords = tokenizer_from_str("NsN|NNN|lsN")
-    no_stopwords = tokenizer_from_str("NsN|NNN|lNN")
+    stopwords = tokenizer_from_str("NsN|NNN|lsNN")
+    no_stopwords = tokenizer_from_str("NsN|NNN|lNNN")
     assert stopwords("the") == ["_"]
     assert no_stopwords("the") == ["the"]
 
-    posessive = tokenizer_from_str("Nsp|NNN|lNN")
-    no_possessive = tokenizer_from_str("NsN|NNN|lNN")
+    posessive = tokenizer_from_str("Nsp|NNN|lNNN")
+    no_possessive = tokenizer_from_str("NsN|NNN|lNNN")
     assert posessive("the's") == ["the"]
     assert no_possessive("the") == ["the"]
 
-    lowercase = tokenizer_from_str("NsN|NNN|lNN")
-    no_lowercase = tokenizer_from_str("NsN|NNN|NNN")
+    lowercase = tokenizer_from_str("NsN|NNN|lNNN")
+    no_lowercase = tokenizer_from_str("NsN|NNN|NNNN")
     assert lowercase("The") == ["the"]
     assert no_lowercase("The") == ["The"]
 
-    split_on_num = tokenizer_from_str("NsN|NNn|lNN")
-    no_split_on_sum = tokenizer_from_str("NsN|NNN|lNN")
+    split_on_num = tokenizer_from_str("NsN|NNn|lNNN")
+    no_split_on_sum = tokenizer_from_str("NsN|NNN|lNNN")
     assert split_on_num("foo2thee") == ["foo", "2", "thee"]
     assert no_split_on_sum("foo2thee") == ["foo2thee"]
 
-    posessive_std = tokenizer_from_str("Nsp|NNN|lNN")
+    posessive_std = tokenizer_from_str("Nsp|NNN|lNNN")
     assert posessive_std("cat's pajamas") == ["cat", "pajamas"]
+
+    irreg_plurals = tokenizer_from_str("Nsp|NNN|lNpN")
+    assert irreg_plurals("people") == ["person"]
 
     counter = 0
     for tok, tok_str in every_tokenizer():

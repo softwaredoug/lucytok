@@ -46,9 +46,10 @@ correspond to their [Elasticsearch counterparts](https://www.elastic.co/guide/en
 #  ||- Standard (s) or WS tokenizer (w)
 #  ||- Remove possessive suffixes (p) or not (N)
 #  |||
-# "NsN|NNN|NNN"
-#      ||| |||
-#      ||| |||- Porter stem version1 (1) version2 (2) vs N/0 for none
+# "NsN|NNN|NNNN"
+#      ||| ||||
+#      ||| ||||- Porter stem version (1) or version (2) vs N/0 for none
+#      ||| |||- Manually convert irregular plurals (p) or not (N)
 #      ||| ||- Blank out stopwords (s) or not (N)
 #      ||| |- Lowercase (l) or not (N)
 #      |||- Split on letter/number transitions (n) or not (N)
