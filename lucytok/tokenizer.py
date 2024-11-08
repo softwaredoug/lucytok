@@ -29,11 +29,11 @@ punct_trans = str.maketrans({key: ' ' for key in string.punctuation})
 es_url = os.getenv("ES_URL")
 
 
-def unnest_list(sublist):
+def flatten_list(sublist):
     flattened_list = []
     for item in sublist:
         if isinstance(item, list):
-            flattened_list.extend(item)
+            flattened_list.extend(flatten_list(item))
         else:
             flattened_list.append(item)
     return flattened_list
@@ -59,7 +59,10 @@ case_change_re = re.compile(r'.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])
 @lru_cache(maxsize=30000)
 def split_on_case_change(s):
     matches = case_change_re.finditer(s)
-    return [m.group(0) for m in matches]
+    matches = [m.group(0) for m in matches]
+    if len(matches) == 1:
+        return matches[0]
+    return matches
 
 
 char_to_num_change_re = re.compile(r'.+?(?:(?<=\d)(?=\D)|(?<=\D)(?=\d)|$)')
@@ -68,7 +71,10 @@ char_to_num_change_re = re.compile(r'.+?(?:(?<=\d)(?=\D)|(?<=\D)(?=\d)|$)')
 @lru_cache(maxsize=30000)
 def split_on_char_num_change(s):
     matches = char_to_num_change_re.finditer(s)
-    return [m.group(0) for m in matches]
+    matches = [m.group(0) for m in matches]
+    if len(matches) == 1:
+        return matches[0]
+    return matches
 
 
 # a, an, and, are, as, at, be, but, by, for, if, in, into, is, it, no, not, of, on, or, such, that, the, their, then, there, these, they, this, to, was, will, with
@@ -150,7 +156,23 @@ def tokenizer(text: str,
               remove_possessive: bool,
               stopwords_to_char: Optional[str],
               irregular_plural: bool,
-              porter_version: Optional[int]) -> List[str]:
+              porter_version: Optional[int],
+              flatten: bool = True) -> List[str]:
+
+    def null_flattener(x):
+        return x
+
+    def apply_to_list_of_list(func, lst_of_str):
+        if isinstance(lst_of_str, list):
+            return [apply_to_list_of_list(func, item) for item in lst_of_str]
+        if not isinstance(lst_of_str, str):
+            raise ValueError(f"Expected list of strings, got {lst_of_str}")
+        return func(lst_of_str)
+
+    flattener = null_flattener
+    if flatten:
+        flattener = flatten_list
+
     if ascii_folding:
         text = fold_to_ascii(text)
 
@@ -165,37 +187,36 @@ def tokenizer(text: str,
 
     # Split on punctuation
     if split_on_punct:
-        tokens = unnest_list([split_punct(tok) for tok in tokens])
+        tokens = flattener(apply_to_list_of_list(split_punct, tokens))
 
     # Split on case change FooBar -> Foo Bar
     if split_on_case:
-        tokens = unnest_list([split_on_case_change(tok) for tok in tokens])
+        tokens = flattener(apply_to_list_of_list(split_on_case_change, tokens))
 
     # Split on number
     if split_on_num:
-        tokens = unnest_list([split_on_char_num_change(tok) for tok in tokens])
+        tokens = flattener(apply_to_list_of_list(split_on_char_num_change, tokens))
 
     # Lowercase
     if lowercase:
-        tokens = [token.lower() for token in tokens]
+        tokens = flattener(apply_to_list_of_list(str.lower, tokens))
 
     # Split compound words
     if split_compounds:
-        tokens = unnest_list([split_compound(tok) for tok in tokens])
+        tokens = flattener(apply_to_list_of_list(split_compound, tokens))
 
     # Replace stopwords with a 'blank' character
     if stopwords_to_char:
-        tokens = [token if token.lower() not in elasticsearch_english_stopwords
-                  else stopwords_to_char for token in tokens]
+        tokens = flattener(apply_to_list_of_list(lambda x: '_' if x.lower() in elasticsearch_english_stopwords else x, tokens))
 
     if irregular_plural:
-        tokens = [plural_to_root(token) for token in tokens]
+        tokens = flattener(apply_to_list_of_list(plural_to_root, tokens))
 
     # Stem with Porter stemmer version if specified
     if porter_version == 1:
-        tokens = [porterv1.stem(token) for token in tokens]
+        tokens = flattener(apply_to_list_of_list(porterv1.stem, tokens))
     elif porter_version == 2:
-        tokens = [porter2_stem_word(token) for token in tokens]
+        tokens = flattener(apply_to_list_of_list(porter2_stem_word, tokens))
 
     return tokens
 
@@ -210,7 +231,9 @@ def tokenizer_factory(ascii_folding: bool,
                       split_compounds: bool,
                       stopwords_to_char: Optional[str],
                       irregular_plural: bool,
-                      porter_version: Optional[int]) -> partial:
+                      porter_version: Optional[int],
+                      flatten: bool = True
+                      ) -> partial:
 
     logger.info("***")
     logger.info("Creating tokenizer with settings")
@@ -236,15 +259,13 @@ def tokenizer_factory(ascii_folding: bool,
                        remove_possessive=remove_possessive,
                        stopwords_to_char=stopwords_to_char,
                        irregular_plural=irregular_plural,
-                       porter_version=porter_version)
+                       porter_version=porter_version,
+                       flatten=flatten)
 
-    test_string = "MaryHad a little_lamb whose 1920s 12fleeceYards was supposedly white. The lamb's fleece was actually black..."
-    logger.info(f"Testing tokenizer with test string: {test_string}")
-    logger.info(f"Tokenizer output: {tok_func(test_string)}")
     return tok_func
 
 
-def tokenizer_from_str(tok_str):
+def tokenizer_from_str(tok_str, flatten=True):
     """
     Each char corresponds to a different tokenizer setting.
     """
@@ -301,7 +322,8 @@ def tokenizer_from_str(tok_str):
             split_compounds=tok_str[7] == 'c',
             stopwords_to_char='_' if tok_str[8] == 's' else None,
             irregular_plural=tok_str[9] == 'p',
-            porter_version=porter_version
+            porter_version=porter_version,
+            flatten=flatten
         )
 
 

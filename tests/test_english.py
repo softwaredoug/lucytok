@@ -88,3 +88,22 @@ def test_compound_split():
     assert compound_split("airplane") == ["air", "plane"]
     assert compound_split("a big backpack airplane") == ["a", "big", "back", "pack", "air", "plane"]
     assert no_compound_split("airplane") == ["airplane"]
+
+
+def test_compound_not_flattened():
+    compound_split = english("Nsp->NNN->l->cNN->N", flatten=False)
+    assert compound_split("a big backpack airplane") == ["a", "big", ["back", "pack"], ["air", "plane"]]
+
+
+def test_compound_num_not_flattened():
+    compound_split = english("Nsp->NNn->l->cNN->N", flatten=False)
+    assert compound_split("a big backpack2backpack airplane") == ["a", "big",
+                                                                  [["back", "pack"], "2", ["back", "pack"]],
+                                                                  ["air", "plane"]]
+
+
+def test_compound_num_flattened():
+    compound_split = english("Nsp->NNn->l->cNN->N", flatten=True)
+    assert compound_split("a big backpack2backpack airplane") == ["a", "big",
+                                                                  "back", "pack", "2", "back", "pack",
+                                                                  "air", "plane"]
