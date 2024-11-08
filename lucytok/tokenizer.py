@@ -9,6 +9,7 @@ from functools import partial, lru_cache
 from lucytok.porter import PorterStemmer
 from lucytok.asciifold import unicode_to_ascii
 from lucytok.plurals import plural_to_root
+from lucytok.compounds import split_compound
 
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 stemmer = Stemmer.Stemmer("english")
 porterv1 = PorterStemmer()
+
+
+STAGE_DELIM = "->"
 
 
 punct_trans = str.maketrans({key: ' ' for key in string.punctuation})
@@ -142,6 +146,7 @@ def tokenizer(text: str,
               split_on_case: bool,
               split_on_num: bool,
               lowercase: bool,
+              split_compounds: bool,
               remove_possessive: bool,
               stopwords_to_char: Optional[str],
               irregular_plural: bool,
@@ -174,6 +179,10 @@ def tokenizer(text: str,
     if lowercase:
         tokens = [token.lower() for token in tokens]
 
+    # Split compound words
+    if split_compounds:
+        tokens = unnest_list([split_compound(tok) for tok in tokens])
+
     # Replace stopwords with a 'blank' character
     if stopwords_to_char:
         tokens = [token if token.lower() not in elasticsearch_english_stopwords
@@ -198,6 +207,7 @@ def tokenizer_factory(ascii_folding: bool,
                       split_on_num: bool,
                       remove_possessive: bool,
                       lowercase: bool,
+                      split_compounds: bool,
                       stopwords_to_char: Optional[str],
                       irregular_plural: bool,
                       porter_version: Optional[int]) -> partial:
@@ -211,6 +221,7 @@ def tokenizer_factory(ascii_folding: bool,
     logger.info(f"SplitOnCase:{split_on_case}")
     logger.info(f"SplitOnNum:{split_on_num}")
     logger.info(f"Lowercase:{lowercase}")
+    logger.info(f"Compound:{split_compounds}")
     logger.info(f"StopwordsToChar:{stopwords_to_char}")
     logger.info(f"IrregularPlural:{irregular_plural}")
     logger.info(f"PorterVersion:{porter_version}")
@@ -221,6 +232,7 @@ def tokenizer_factory(ascii_folding: bool,
                        split_on_case=split_on_case,
                        split_on_num=split_on_num,
                        lowercase=lowercase,
+                       split_compounds=split_compounds,
                        remove_possessive=remove_possessive,
                        stopwords_to_char=stopwords_to_char,
                        irregular_plural=irregular_plural,
@@ -236,34 +248,47 @@ def tokenizer_from_str(tok_str):
     """
     Each char corresponds to a different tokenizer setting.
     """
-    # Validate args
-    if tok_str.count('|') != 2:
-        raise ValueError("Tokenizer string must have 2 '|' characters separiting ascii folding,tokenizer,posessive|punc,case,letter->num|lowercase,stopowords,stemmer")
-    tok_str = tok_str.replace("|", "")
-    if len(tok_str) != 10:
-        raise ValueError("Tokenizer string must be 10 characters long")
+    # Validate argsa
+    if tok_str.count(STAGE_DELIM) != 4:
+        raise ValueError(f"Tokenizer string must have 4 {STAGE_DELIM} characters separiting asciifolding,tokenizer,posessive->punc,case,letternum->lowercase->compounds,stopwords,plurals->stemmer")
+    tok_str = tok_str.replace(STAGE_DELIM, "")
+    if len(tok_str) != 11:
+        raise ValueError("Tokenizer string must have 11 settings - characters separiting asciifolding,tokenizer,posessive->punc,case,letternum->lowercase->compounds,stopwords,plurals->stemmer")
     else:
-        if tok_str[0] not in 'aN':
-            raise ValueError(f"0th character must be either 'a' (ascii folding) or 'N' (no ascii folding) -- you passed {tok_str[0]}")
-        if tok_str[1] not in 'sw':
-            raise ValueError(f"1st character must be either 's' (standard tokenizer) or 'w' (whitespace tokenizer) -- you passed {tok_str[1]}")
-        if tok_str[2] not in 'pN':
-            raise ValueError(f"2nd character must be either 'p' (remove possessive) or 'N' (don't remove possessive) -- you passed {tok_str[2]}")
-        if tok_str[3] not in 'pN':
-            raise ValueError(f"3rd character must be either 'p' (split on punctuation) or 'N' (don't split on punctuation) -- you passed {tok_str[3]}")
-        if tok_str[4] not in 'cN':
-            raise ValueError(f"4th character must be either 'c' (split on case) or 'N' (don't split on case) -- you passed {tok_str[4]}")
-        if tok_str[5] not in 'nN':
-            raise ValueError(f"5th character must be either 'n' (split on letter->number) or 'N' (don't split on number) -- you passed {tok_str[5]}")
-        if tok_str[6] not in 'lN':
-            raise ValueError(f"6th character must be either 'l' (lowercase) or 'N' (don't lowercase) -- you passed {tok_str[6]}")
-        if tok_str[7] not in 'sN':
-            raise ValueError(f"7th character must be either 's' (stopwords to char) or 'N' (don't stopwords to char) -- you passed {tok_str[7]}")
-        if tok_str[8] not in 'pN':
-            raise ValueError("8th character must be either 'p' normalize irregular plurals , 'N' (do nothing) -- you passed {tok_str[8]}")
-        if tok_str[9] not in '12N':
-            raise ValueError("8th character must be either '1' (porter version 1), '2' (porter version 2), or 'N' (no stemming) -- you passed {tok_str[9]}")
-        porter_version = int(tok_str[9]) if tok_str[9] != 'N' else None
+        stag = 0
+        if tok_str[stag] not in 'aN':
+            raise ValueError(f"{stag} character must be either 'a' (ascii folding) or 'N' (no ascii folding) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'sw':
+            raise ValueError(f"{stag} character must be either 's' (standard tokenizer) or 'w' (whitespace tokenizer) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'pN':
+            raise ValueError(f"{stag} character must be either 'p' (remove possessive) or 'N' (don't remove possessive) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'pN':
+            raise ValueError(f"{stag} character must be either 'p' (split on punctuation) or 'N' (don't split on punctuation) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'cN':
+            raise ValueError(f"{stag} character must be either 'c' (split on case) or 'N' (don't split on case) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'nN':
+            raise ValueError(f"{stag} character must be either 'n' (split on letter->number) or 'N' (don't split on number) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'lN':
+            raise ValueError(f"{stag} character must be either 'l' (lowercase) or 'N' (don't lowercase) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'cN':
+            raise ValueError(f"{stag} character must be either 'c' (split compounds) or 'N' (don't split compounds) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'sN':
+            raise ValueError(f"{stag} character must be either 's' (stopwords to char) or 'N' (don't stopwords to char) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in 'pN':
+            raise ValueError("{stag} character must be either 'p' normalize irregular plurals , 'N' (do nothing) -- you passed {tok_str[stag]}")
+        stag += 1
+        if tok_str[stag] not in '12N':
+            raise ValueError("{stag} character must be either '1' (porter version 1), '2' (porter version 2), or 'N' (no stemming) -- you passed {tok_str[stag]}")
+        porter_version = int(tok_str[-1]) if tok_str[-1] != 'N' else None
 
         return tokenizer_factory(
             tok_str[0] == 'a',
@@ -273,8 +298,9 @@ def tokenizer_from_str(tok_str):
             split_on_case=tok_str[4] == 'c',
             split_on_num=tok_str[5] == 'n',
             lowercase=tok_str[6] == 'l',
-            stopwords_to_char='_' if tok_str[7] == 's' else None,
-            irregular_plural=tok_str[8] == 'p',
+            split_compounds=tok_str[7] == 'c',
+            stopwords_to_char='_' if tok_str[8] == 's' else None,
+            irregular_plural=tok_str[9] == 'p',
             porter_version=porter_version
         )
 
@@ -284,32 +310,33 @@ def every_tokenizer_str():
     num = 'N'
     punctuation = 'p'
     lowercase = 'l'
-    for ascii_fold in ['a', 'N']:
-        for tok in ['s', 'w']:
-            for punctuation in ['p', 'N']:
-                for case in ['c', 'N']:
-                    for num in ['n', 'N']:
-                        for poss in ['p', 'N']:
-                            for lowercase in ['l', 'N']:
-                                for stop in ['s', 'N']:
-                                    for irreg in ['p', 'N']:
-                                        for stem in ['1', '2', 'N']:
-                                            yield f"{ascii_fold}{tok}{poss}|{punctuation}{case}{num}|{lowercase}{stop}{irreg}{stem}"
+
+    def every_tok():
+        for ascii_fold in ['a', 'N']:
+            for tok in ['s', 'w']:
+                for punctuation in ['p', 'N']:
+                    yield ascii_fold, tok, punctuation
+
+    def every_split():
+        for case in ['c', 'N']:
+            for num in ['n', 'N']:
+                for poss in ['p', 'N']:
+                    yield case, num, poss
+
+    def every_dict():
+        for stop in ['s', 'N']:
+            for irreg in ['p', 'N']:
+                for compound in ['c', 'N']:
+                    yield stop, irreg, compound
+
+    for ascii_fold, tok, punctuation in every_tok():
+        for case, num, poss in every_split():
+            for lowercase in ['l', 'N']:
+                for stop, irreg, compound in every_dict():
+                    for stem in ['1', '2', 'N']:
+                        yield f"{ascii_fold}{tok}{poss}|{punctuation}{case}{num}|{lowercase}{stop}{irreg}{stem}"
 
 
 def every_tokenizer():
     for tok_str in every_tokenizer_str():
         yield tokenizer_from_str(tok_str), tok_str
-#
-#  |- ASCII fold (a) or not (N)
-#  ||- Standard (s) or WS tokenizer (w)
-#  ||- Remove possessive suffixes (p) or not (N)
-#  |||
-# "NsN|NNN|NNN"
-#      ||| |||
-#      ||| |||- Porter stem vs (1) vs (2) vs N/0 for none
-#      ||| ||- Blank out stopwords (s) or not (N)
-#      ||| |- Lowercase (l) or not (N)
-#      |||- Split on letter/number transitions (n) or not (N)
-#      ||- Split on case changes (c) or not (N)
-#      |- Split on punctuation (p) or not (N)
