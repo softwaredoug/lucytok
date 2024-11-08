@@ -10,6 +10,7 @@ from lucytok.porter import PorterStemmer
 from lucytok.asciifold import unicode_to_ascii
 from lucytok.plurals import plural_to_root
 from lucytok.compounds import split_compound
+from lucytok.british_american import british_to_american_spelling
 
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,7 @@ def tokenizer(text: str,
               split_on_num: bool,
               lowercase: bool,
               split_compounds: bool,
+              british_to_american: bool,
               remove_possessive: bool,
               stopwords_to_char: Optional[str],
               irregular_plural: bool,
@@ -205,6 +207,10 @@ def tokenizer(text: str,
     if split_compounds:
         tokens = flattener(apply_to_list_of_list(split_compound, tokens))
 
+    # Convert British to American spelling
+    if british_to_american:
+        tokens = flattener(apply_to_list_of_list(british_to_american_spelling, tokens))
+
     # Replace stopwords with a 'blank' character
     if stopwords_to_char:
         tokens = flattener(apply_to_list_of_list(lambda x: '_' if x.lower() in elasticsearch_english_stopwords else x, tokens))
@@ -229,6 +235,7 @@ def tokenizer_factory(ascii_folding: bool,
                       remove_possessive: bool,
                       lowercase: bool,
                       split_compounds: bool,
+                      british_to_american: bool,
                       stopwords_to_char: Optional[str],
                       irregular_plural: bool,
                       porter_version: Optional[int],
@@ -256,6 +263,7 @@ def tokenizer_factory(ascii_folding: bool,
                        split_on_num=split_on_num,
                        lowercase=lowercase,
                        split_compounds=split_compounds,
+                       british_to_american=british_to_american,
                        remove_possessive=remove_possessive,
                        stopwords_to_char=stopwords_to_char,
                        irregular_plural=irregular_plural,
@@ -273,8 +281,8 @@ def tokenizer_from_str(tok_str, flatten=True):
     if tok_str.count(STAGE_DELIM) != 4:
         raise ValueError(f"Tokenizer string must have 4 {STAGE_DELIM} characters separiting asciifolding,tokenizer,posessive->punc,case,letternum->lowercase->compounds,stopwords,plurals->stemmer")
     tok_str = tok_str.replace(STAGE_DELIM, "")
-    if len(tok_str) != 11:
-        raise ValueError("Tokenizer string must have 11 settings - characters separiting asciifolding,tokenizer,posessive->punc,case,letternum->lowercase->compounds,stopwords,plurals->stemmer")
+    if len(tok_str) != 12:
+        raise ValueError("Tokenizer string must have 12 settings - characters separiting asciifolding,tokenizer,posessive->punc,case,letternum->lowercase->compounds,british,stopwords,plurals->stemmer")
     else:
         stag = 0
         if tok_str[stag] not in 'aN':
@@ -301,6 +309,9 @@ def tokenizer_from_str(tok_str, flatten=True):
         if tok_str[stag] not in 'cN':
             raise ValueError(f"{stag} character must be either 'c' (split compounds) or 'N' (don't split compounds) -- you passed {tok_str[stag]}")
         stag += 1
+        if tok_str[stag] not in 'bN':
+            raise ValueError(f"{stag} character must be either 'b' (british to american) or 'N' (don't split compounds) -- you passed {tok_str[stag]}")
+        stag += 1
         if tok_str[stag] not in 'sN':
             raise ValueError(f"{stag} character must be either 's' (stopwords to char) or 'N' (don't stopwords to char) -- you passed {tok_str[stag]}")
         stag += 1
@@ -320,45 +331,9 @@ def tokenizer_from_str(tok_str, flatten=True):
             split_on_num=tok_str[5] == 'n',
             lowercase=tok_str[6] == 'l',
             split_compounds=tok_str[7] == 'c',
-            stopwords_to_char='_' if tok_str[8] == 's' else None,
-            irregular_plural=tok_str[9] == 'p',
+            british_to_american=tok_str[8] == 'b',
+            stopwords_to_char='_' if tok_str[9] == 's' else None,
+            irregular_plural=tok_str[10] == 'p',
             porter_version=porter_version,
             flatten=flatten
         )
-
-
-def every_tokenizer_str():
-    case = 'N'
-    num = 'N'
-    punctuation = 'p'
-    lowercase = 'l'
-
-    def every_tok():
-        for ascii_fold in ['a', 'N']:
-            for tok in ['s', 'w']:
-                for punctuation in ['p', 'N']:
-                    yield ascii_fold, tok, punctuation
-
-    def every_split():
-        for case in ['c', 'N']:
-            for num in ['n', 'N']:
-                for poss in ['p', 'N']:
-                    yield case, num, poss
-
-    def every_dict():
-        for stop in ['s', 'N']:
-            for irreg in ['p', 'N']:
-                for compound in ['c', 'N']:
-                    yield stop, irreg, compound
-
-    for ascii_fold, tok, punctuation in every_tok():
-        for case, num, poss in every_split():
-            for lowercase in ['l', 'N']:
-                for stop, irreg, compound in every_dict():
-                    for stem in ['1', '2', 'N']:
-                        yield f"{ascii_fold}{tok}{poss}|{punctuation}{case}{num}|{lowercase}{stop}{irreg}{stem}"
-
-
-def every_tokenizer():
-    for tok_str in every_tokenizer_str():
-        yield tokenizer_from_str(tok_str), tok_str

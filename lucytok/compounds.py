@@ -2,6 +2,7 @@
 # From https://docs.google.com/spreadsheets/d/1QU12DXbj92QLPHKAzM9-qk4ojdfstc12wgkkqww_kdI/edit?gid=0#gid=0
 
 compounds = """ablebodied	able bodied
+aeroplane\taero plane
 aftereffect	after effect
 afternoon	after noon
 afterthought	after thought
@@ -285,6 +286,7 @@ dishcloth	dish cloth
 dishwasher	dish washer
 dishwater	dish water
 diskdrive	disk drive
+discdrive	disc drive
 doover	do over
 dogcatcher	dog catcher
 dogfish	dog fish
@@ -297,11 +299,13 @@ doormat	door mat
 doorstep	door step
 doorstop	door stop
 doorway	door way
+doughnut\tdough nut
 downpayment	down payment
 downhome	down home
 downburst	down burst
 downcast	down cast
 downdraft	down draft
+downdraught	down draught
 downfall	down fall
 downhill	down hill
 downlink	down link
@@ -1604,6 +1608,7 @@ wasteland	waste land
 watchdog	watch dog
 waterbed	water bed
 watercolor	water color
+watercolour	water colour
 watercress	water cress
 waterfall	water fall
 waterfowl	water fowl
