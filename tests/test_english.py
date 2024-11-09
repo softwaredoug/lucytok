@@ -121,3 +121,17 @@ def test_compound_num_flattened():
     assert compound_split("a big backpack2backpack airplane") == ["a", "big",
                                                                   "back", "pack", "2", "back", "pack",
                                                                   "air", "plane"]
+
+
+def test_everything_on():
+    everything = english("asp->pcn->l->cbsp->1")
+    tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
+    assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_',
+                         'governor', '_', '_', 'plymouth', 'coloni']
+
+
+def test_everything_on_flattened_no_expansions():
+    everything = english("asp->pcn->l->cbsp->1", flatten=False)
+    tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
+    assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_', 'governor',
+                         '_', '_', 'plymouth', 'coloni']
