@@ -135,3 +135,10 @@ def test_everything_on_flattened_no_expansions():
     tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
     assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_', 'governor',
                          '_', '_', 'plymouth', 'coloni']
+
+
+def test_everything_on_unflattened_blanks_no_empty_lists():
+    everything = english("asp->pcn->l->cbsp->1", flatten=False)
+    tokenized = everything("____________________ is considered the father of modern medicine.")
+    for token in tokenized:
+        assert token != []

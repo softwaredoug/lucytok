@@ -166,9 +166,18 @@ def tokenizer(text: str,
 
     def apply_to_list_of_list(func, lst_of_str):
         if isinstance(lst_of_str, list):
-            result = [apply_to_list_of_list(func, item) for item in lst_of_str]
-            if len(result) == 1:
-                return result[0]
+            # result = [apply_to_list_of_list(func, item) for item in lst_of_str]
+            # Remove empty lists, convert single element lists to strings
+            result = []
+            for item in lst_of_str:
+                item = apply_to_list_of_list(func, item)
+                if isinstance(item, list):
+                    if len(item) == 1 and isinstance(item[0], str):
+                        result.append(item[0])
+                    if len(item) > 1:
+                        result.append(item)
+                else:
+                    result.append(item)
             return result
         if not isinstance(lst_of_str, str):
             raise ValueError(f"Expected list of strings, got {lst_of_str}")
