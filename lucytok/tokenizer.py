@@ -174,7 +174,7 @@ def tokenizer(text: str,
                 if isinstance(item, list):
                     if len(item) == 1 and isinstance(item[0], str):
                         result.append(item[0])
-                    if len(item) > 1:
+                    elif len(item) > 1:
                         result.append(item)
                 else:
                     result.append(item)

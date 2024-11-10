@@ -1,4 +1,6 @@
 from lucytok import english
+import pytest
+import random
 
 
 def test_ws_tokenizer():
@@ -148,3 +150,34 @@ def test_compounds_with_stopwords():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
     tokenized = everything("another name for delzicol")
     assert tokenized[0] == ['an', 'other']
+
+
+def test_single_char_not_consumed():
+    everything = english("asp->pcn->l->scbp->1", flatten=False)
+    tokenized = everything("what me2 fart")
+    assert tokenized == ['what', ['me', '2'], 'fart']
+
+
+def test_single_char_stopword_not_consumed():
+    everything = english("asp->pcn->l->scbp->1", flatten=False)
+    tokenized = everything("what a2 fart")
+    assert tokenized == ['what', ['_', '2'], 'fart']
+
+    everything_no_stop = english("asp->pcn->l->Ncbp->1", flatten=False)
+    tokenized = everything_no_stop("what a2 fart")
+    assert tokenized == ['what', ['a', '2'], 'fart']
+
+    everything_no_stop = english("asp->pcn->l->Ncbp->1", flatten=False)
+    tokenized = everything_no_stop("what the2 fart")
+    assert tokenized == ['what', ['the', '2'], 'fart']
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2, 3, 4, 5])
+def test_random_strings(seed):
+    random.seed(seed)
+    everything = english("asp->pcn->l->scbp->1", flatten=False)
+    tokenized = everything("".join(random.choices("abcdefghijklmnopqrstuvwxyz ", k=1000))
+                           + " ".join(random.choices("abcdefghijklmnopqrstuvwxyz", k=1000)))
+    assert isinstance(tokenized, list)
+    for token in tokenized:
+        assert token != []
