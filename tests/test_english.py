@@ -43,7 +43,7 @@ def test_porter_stemmer():
 
 
 def test_stopwords():
-    stopwords = english("NsN->NNN->l->NNsN->N")
+    stopwords = english("NsN->NNN->l->sNNN->N")
     no_stopwords = english("NsN->NNN->l->NNNN->N")
     assert stopwords("the") == ["_"]
     assert no_stopwords("the") == ["the"]
@@ -83,7 +83,7 @@ def test_irregular_plurals():
 
 
 def test_compound_split():
-    compound_split = english("Nsp->NNN->l->cNNN->N")
+    compound_split = english("Nsp->NNN->l->NcNN->N")
     no_compound_split = english("Nsp->NNN->l->NNNN->N")
     assert compound_split("airplane") == ["air", "plane"]
     assert compound_split("a big backpack airplane") == ["a", "big", "back", "pack", "air", "plane"]
@@ -91,54 +91,60 @@ def test_compound_split():
 
 
 def test_british_english():
-    british = english("Nsp->NNN->l->NbNN->N")
+    british = english("Nsp->NNN->l->NNbN->N")
     no_british = english("Nsp->NNN->l->NNNN->N")
     assert british("aeroplane") == ["airplane"]
     assert no_british("aeroplane") == ["aeroplane"]
 
 
 def test_compound_not_flattened():
-    compound_split = english("Nsp->NNN->l->cNNN->N", flatten=False)
+    compound_split = english("Nsp->NNN->l->NcNN->N", flatten=False)
     assert compound_split("a big backpack airplane") == ["a", "big", ["back", "pack"], ["air", "plane"]]
 
 
 def test_compound_num_not_flattened():
-    compound_split = english("Nsp->NNn->l->cNNN->N", flatten=False)
+    compound_split = english("Nsp->NNn->l->NcNN->N", flatten=False)
     assert compound_split("a big backpack2backpack airplane") == ["a", "big",
                                                                   [["back", "pack"], "2", ["back", "pack"]],
                                                                   ["air", "plane"]]
 
 
 def test_british_compound_num_not_flattened():
-    compound_split = english("Nsp->NNn->l->cbNN->N", flatten=False)
+    compound_split = english("Nsp->NNn->l->NcbN->N", flatten=False)
     assert compound_split("a big watercolour2backpack airplane") == ["a", "big",
                                                                      [["water", "color"], "2", ["back", "pack"]],
                                                                      ["air", "plane"]]
 
 
 def test_compound_num_flattened():
-    compound_split = english("Nsp->NNn->l->cNNN->N", flatten=True)
+    compound_split = english("Nsp->NNn->l->NcNN->N", flatten=True)
     assert compound_split("a big backpack2backpack airplane") == ["a", "big",
                                                                   "back", "pack", "2", "back", "pack",
                                                                   "air", "plane"]
 
 
 def test_everything_on():
-    everything = english("asp->pcn->l->cbsp->1")
+    everything = english("asp->pcn->l->scbp->1")
     tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
     assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_',
                          'governor', '_', '_', 'plymouth', 'coloni']
 
 
 def test_everything_on_flattened_no_expansions():
-    everything = english("asp->pcn->l->cbsp->1", flatten=False)
+    everything = english("asp->pcn->l->scbp->1", flatten=False)
     tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
     assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_', 'governor',
                          '_', '_', 'plymouth', 'coloni']
 
 
 def test_everything_on_unflattened_blanks_no_empty_lists():
-    everything = english("asp->pcn->l->cbsp->1", flatten=False)
+    everything = english("asp->pcn->l->scbp->1", flatten=False)
     tokenized = everything("____________________ is considered the father of modern medicine.")
     for token in tokenized:
         assert token != []
+
+
+def test_compounds_with_stopwords():
+    everything = english("asp->pcn->l->scbp->1", flatten=False)
+    tokenized = everything("another name for delzicol")
+    assert tokenized[0] == ['an', 'other']

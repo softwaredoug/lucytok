@@ -215,6 +215,10 @@ def tokenizer(text: str,
     if lowercase:
         tokens = flattener(apply_to_list_of_list(str.lower, tokens))
 
+    # Replace stopwords with a 'blank' character
+    if stopwords_to_char:
+        tokens = flattener(apply_to_list_of_list(lambda x: '_' if x.lower() in elasticsearch_english_stopwords else x, tokens))
+
     # Split compound words
     if split_compounds:
         tokens = flattener(apply_to_list_of_list(split_compound, tokens))
@@ -222,10 +226,6 @@ def tokenizer(text: str,
     # Convert British to American spelling
     if british_to_american:
         tokens = flattener(apply_to_list_of_list(british_to_american_spelling, tokens))
-
-    # Replace stopwords with a 'blank' character
-    if stopwords_to_char:
-        tokens = flattener(apply_to_list_of_list(lambda x: '_' if x.lower() in elasticsearch_english_stopwords else x, tokens))
 
     if irregular_plural:
         tokens = flattener(apply_to_list_of_list(plural_to_root, tokens))
@@ -318,14 +318,14 @@ def tokenizer_from_str(tok_str, flatten=True):
         if tok_str[stag] not in 'lN':
             raise ValueError(f"{stag} character must be either 'l' (lowercase) or 'N' (don't lowercase) -- you passed {tok_str[stag]}")
         stag += 1
+        if tok_str[stag] not in 'sN':
+            raise ValueError(f"{stag} character must be either 's' (stopwords to char) or 'N' (don't stopwords to char) -- you passed {tok_str[stag]}")
+        stag += 1
         if tok_str[stag] not in 'cN':
             raise ValueError(f"{stag} character must be either 'c' (split compounds) or 'N' (don't split compounds) -- you passed {tok_str[stag]}")
         stag += 1
         if tok_str[stag] not in 'bN':
             raise ValueError(f"{stag} character must be either 'b' (british to american) or 'N' (don't split compounds) -- you passed {tok_str[stag]}")
-        stag += 1
-        if tok_str[stag] not in 'sN':
-            raise ValueError(f"{stag} character must be either 's' (stopwords to char) or 'N' (don't stopwords to char) -- you passed {tok_str[stag]}")
         stag += 1
         if tok_str[stag] not in 'pN':
             raise ValueError("{stag} character must be either 'p' normalize irregular plurals , 'N' (do nothing) -- you passed {tok_str[stag]}")
@@ -342,9 +342,9 @@ def tokenizer_from_str(tok_str, flatten=True):
             split_on_case=tok_str[4] == 'c',
             split_on_num=tok_str[5] == 'n',
             lowercase=tok_str[6] == 'l',
-            split_compounds=tok_str[7] == 'c',
-            british_to_american=tok_str[8] == 'b',
-            stopwords_to_char='_' if tok_str[9] == 's' else None,
+            stopwords_to_char='_' if tok_str[7] == 's' else None,
+            split_compounds=tok_str[8] == 'c',
+            british_to_american=tok_str[9] == 'b',
             irregular_plural=tok_str[10] == 'p',
             porter_version=porter_version,
             flatten=flatten

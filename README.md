@@ -12,7 +12,7 @@ Creating a tokenizer close to Elasticsearch's default english analyzer
 
 ```
 from lucytok import english
-es_english = english("Nsp->NNN->l->NsNN->1")
+es_english = english("Nsp->NNN->l->sNNN->1")
 tokenized = es_english("The quick brown fox jumps over the lazy døg")
 print(tokenized)
 ```
@@ -27,7 +27,7 @@ Make a tokenizer with ASCII folding...
 
 ```
 from lucytok import english
-es_english_folded = english("asp->NNN->l->NsNN->1")
+es_english_folded = english("asp->NNN->l->sNNN->1")
 print(es_english_folded("The quick brown fox jumps over the lazy døg"))
 ```
 
@@ -39,7 +39,7 @@ Split compounds and convert British to American spelling...
 
 ```
 from lucytok import english
-es_british = english("asp->NNN->l->cbsN->1")
+es_british = english("asp->NNN->l->scbN->1")
 print(es_british("The watercolour fox jumps over the lazy døg"))
 ```
 
@@ -61,9 +61,9 @@ correspond to their [Elasticsearch counterparts](https://www.elastic.co/guide/en
 #       |||  |  ||||  |
 #       |||  |  ||||  |- Porter stem version (1) or version (2) vs N/0 for none
 #       |||  |  ||||- Manually convert irregular plurals (p) or not (N)
-#       |||  |  |||- Blank out stopwords (s) or not (N)
+#       |||  |  |||- Split Compounds (c) or not (N)
 #       |||  |  ||- Convert british to american spelling (b) or not (N)
-#       |||  |  |- Split Compounds (c) or not (N)
+#       |||  |  |- Blank out stopwords (s) or not (N)
 #       |||  |- Lowercase (l) or not (N)
 #       |||- Split on letter/number transitions (n) or not (N)
 #       ||- Split on case changes (c) or not (N)
@@ -84,7 +84,7 @@ correspond to their [Elasticsearch counterparts](https://www.elastic.co/guide/en
 
 # "NsN->NNN->N->NNNN->N"
 #               ----
-#               (dictionary based edits: synonyms, stopwords, etc)
+#               (dictionary based splitting stopwords -> compounds -> british/american English -> irregular plurals)
 
 # "NsN->NNN->N->NNNN->N"
 #                     - stemming (porter)
