@@ -106,6 +106,8 @@ punct_to_ws = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
 @lru_cache(maxsize=30000)
 def split_punct(token):
     result = token.translate(punct_to_ws).split()
+    if len(result) == 1:
+        return result[0]
     return result
 
 
@@ -164,13 +166,15 @@ def tokenizer(text: str,
     def null_flattener(x):
         return x
 
-    def apply_to_list_of_list(func, lst_of_str):
+    def flat_applier(func, list_of_str):
+        return [func(x) for x in list_of_str]
+
+    def unflattened_applier(func, lst_of_str):
         if isinstance(lst_of_str, list):
-            # result = [apply_to_list_of_list(func, item) for item in lst_of_str]
             # Remove empty lists, convert single element lists to strings
             result = []
             for item in lst_of_str:
-                item = apply_to_list_of_list(func, item)
+                item = unflattened_applier(func, item)
                 if isinstance(item, list):
                     if len(item) == 1 and isinstance(item[0], str):
                         result.append(item[0])
@@ -184,8 +188,10 @@ def tokenizer(text: str,
         return func(lst_of_str)
 
     flattener = null_flattener
+    applier = unflattened_applier
     if flatten:
         flattener = flatten_list
+        applier = flat_applier
 
     if ascii_folding:
         text = fold_to_ascii(text)
@@ -201,40 +207,40 @@ def tokenizer(text: str,
 
     # Split on punctuation
     if split_on_punct:
-        tokens = flattener(apply_to_list_of_list(split_punct, tokens))
+        tokens = flattener(applier(split_punct, tokens))
 
     # Split on case change FooBar -> Foo Bar
     if split_on_case:
-        tokens = flattener(apply_to_list_of_list(split_on_case_change, tokens))
+        tokens = flattener(applier(split_on_case_change, tokens))
 
     # Split on number
     if split_on_num:
-        tokens = flattener(apply_to_list_of_list(split_on_char_num_change, tokens))
+        tokens = flattener(applier(split_on_char_num_change, tokens))
 
     # Lowercase
     if lowercase:
-        tokens = flattener(apply_to_list_of_list(str.lower, tokens))
+        tokens = flattener(applier(str.lower, tokens))
 
     # Replace stopwords with a 'blank' character
     if stopwords_to_char:
-        tokens = flattener(apply_to_list_of_list(lambda x: '_' if x.lower() in elasticsearch_english_stopwords else x, tokens))
+        tokens = flattener(applier(lambda x: '_' if x.lower() in elasticsearch_english_stopwords else x, tokens))
 
     # Split compound words
     if split_compounds:
-        tokens = flattener(apply_to_list_of_list(split_compound, tokens))
+        tokens = flattener(applier(split_compound, tokens))
 
     # Convert British to American spelling
     if british_to_american:
-        tokens = flattener(apply_to_list_of_list(british_to_american_spelling, tokens))
+        tokens = flattener(applier(british_to_american_spelling, tokens))
 
     if irregular_plural:
-        tokens = flattener(apply_to_list_of_list(plural_to_root, tokens))
+        tokens = flattener(applier(plural_to_root, tokens))
 
     # Stem with Porter stemmer version if specified
     if porter_version == 1:
-        tokens = flattener(apply_to_list_of_list(porterv1.stem, tokens))
+        tokens = flattener(applier(porterv1.stem, tokens))
     elif porter_version == 2:
-        tokens = flattener(apply_to_list_of_list(porter2_stem_word, tokens))
+        tokens = flattener(applier(porter2_stem_word, tokens))
 
     return tokens
 

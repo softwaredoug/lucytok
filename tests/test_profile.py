@@ -22,7 +22,7 @@ def profile_and_print():
 
 
 def profile_lucytok():
-    everything = english("asp->pcn->l->scbp->1", flatten=False)
+    everything = english("asp->pcn->l->scbp->1")
     with open("README.md", "r") as f:
         text = f.read()
         start = perf_counter()
