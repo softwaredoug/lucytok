@@ -9,7 +9,7 @@ from functools import partial, lru_cache
 from lucytok.porter import PorterStemmer
 from lucytok.asciifold import unicode_to_ascii
 from lucytok.plurals import plural_to_root
-from lucytok.compounds import split_compound
+from lucytok.compounds import split_compound, is_compound_phrase
 from lucytok.british_american import british_to_american_spelling
 
 
@@ -138,6 +138,23 @@ def remove_posessive_suffixes(tokens: List[str]) -> List[str]:
 #        }
 
 
+def group_neighbor_compounds(tokens):
+    """Visit every token and its neighbor and gather them into bigrams if they're compounds."""
+    new_tokens = []
+    idx = 0
+    while idx < len(tokens):
+        if idx + 1 < len(tokens) and isinstance(tokens[idx], str) and isinstance(tokens[idx + 1], str):
+            if is_compound_phrase(tokens[idx], tokens[idx + 1]):
+                new_tokens.append([tokens[idx], tokens[idx + 1]])
+                idx += 1
+            else:
+                new_tokens.append(tokens[idx])
+        else:
+            new_tokens.append(tokens[idx])
+        idx += 1
+    return new_tokens
+
+
 def fold_to_ascii(input_text):
     return unicode_to_ascii(input_text)
 
@@ -228,6 +245,10 @@ def tokenizer(text: str,
     # Split compound words
     if split_compounds:
         tokens = flattener(applier(split_compound, tokens))
+        if not flatten:
+            tokens = flattener(group_neighbor_compounds(tokens))
+
+    # Gather compounds in adjacents
 
     # Convert British to American spelling
     if british_to_american:

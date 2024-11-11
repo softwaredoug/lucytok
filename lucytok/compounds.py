@@ -1724,9 +1724,10 @@ yourself	your self
 zigzag	zig zag
 zookeeper	zoo keeper"""
 
-compound_dict = {}
 compound_dict = {line.split('\t')[0]: line.split('\t')[1].split(' ')
                  for line in compounds.split("\n")}
+
+all_phrases = set(tuple(v) for v in compound_dict.values())
 
 
 def split_compound(compound):
@@ -1734,7 +1735,13 @@ def split_compound(compound):
     return compound_dict.get(compound, compound)
 
 
+def is_compound_phrase(token, next_token):
+    return (token, next_token) in all_phrases
+
+
 if __name__ == "__main__":
     assert split_compound("airplane") == ["air", "plane"]
     assert split_compound("plane") == "plane"
     assert split_compound("zookeeper") == ["zoo", "keeper"]
+    assert is_compound_phrase("air", "plane")
+    assert not is_compound_phrase("paper", "plane")

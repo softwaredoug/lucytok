@@ -152,6 +152,18 @@ def test_compounds_with_stopwords():
     assert tokenized[0] == ['an', 'other']
 
 
+def test_compounds_gathers_phrases():
+    compounds = english("asp->pcn->l->Ncbp->1", flatten=False)
+    tokenized = compounds("an other back pack on an air plane")
+    assert tokenized == [['an', 'other'], ['back', 'pack'], 'on', 'an', ['air', 'plane']]
+
+
+def test_compounds_does_not_gather_phrases_when_flattening():
+    compounds = english("asp->pcn->l->Ncbp->1", flatten=True)
+    tokenized = compounds("an other back pack on an air plane")
+    assert tokenized == ['an', 'other', 'back', 'pack', 'on', 'an', 'air', 'plane']
+
+
 def test_single_char_not_consumed():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
     tokenized = everything("what me2 fart")
