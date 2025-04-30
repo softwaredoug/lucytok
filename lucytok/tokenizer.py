@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import regex as re
 import os
 import string
@@ -33,8 +33,11 @@ es_url = os.getenv("ES_URL")
 def flatten_list(sublist):
     flattened_list = []
     for item in sublist:
-        if isinstance(item, list):
-            flattened_list.extend(flatten_list(item))
+        if isinstance(item[0], list):
+            start = item[1]
+            stop = item[2]
+            for token in item[0]:
+                flattened_list.append((token, start, stop))
         else:
             flattened_list.append(item)
     return flattened_list
@@ -90,14 +93,25 @@ std_pattern = r"\w\p{Extended_Pictographic}\p{WB:RegionalIndicator}"
 segment = re.compile(rf"[{std_pattern}](?:\B\S)*", flags=re.WORD)
 
 
-def standard_tokenizer(text: str) -> List[str]:
+def standard_tokenizer(text: str) -> List[Tuple[str, int, int]]:
     """Tokenize text using a standard tokenizer."""
-    # Find all tokens based on the word boundary pattern
-    return segment.findall(text)
+    return [(match.group(), match.start(), match.end()) for match in segment.finditer(text)]
 
 
-def ws_tokenizer(text: str) -> str:
-    return text.split()
+def ws_tokenizer(text: str) -> List[Tuple[str, int, int]]:
+    """
+    Tokenize on whitespace, returning (token, start, end) for each word.
+    """
+    tokens = []
+    offset = 0
+    lastTokenOffset = 0
+    for word in text.split():
+        start = text[lastTokenOffset:].find(word, offset)   # This is going to be slow!
+        end = start + len(word)
+        lastTokenOffset = end
+        tokens.append((word, start, end))
+        offset = end  # Continue searching after this token
+    return tokens
 
 
 punct_to_ws = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
@@ -121,10 +135,10 @@ def remove_suffix(token: str) -> str:
     return token
 
 
-def remove_posessive_suffixes(tokens: List[str]) -> List[str]:
+def remove_posessive_suffixes(tokens: List[Tuple[str, int, int]]) -> List[Tuple[str, int, int]]:
     """Remove posessive suffixes from tokens."""
 
-    return [remove_suffix(token) for token in tokens]
+    return [(remove_suffix(token), start, end) for (token, start, end) in tokens]
 
 # "rebuilt_english": {
 #          "tokenizer":  "standard",
@@ -143,9 +157,14 @@ def group_neighbor_compounds(tokens):
     new_tokens = []
     idx = 0
     while idx < len(tokens):
-        if idx + 1 < len(tokens) and isinstance(tokens[idx], str) and isinstance(tokens[idx + 1], str):
-            if is_compound_phrase(tokens[idx], tokens[idx + 1]):
-                new_tokens.append([tokens[idx], tokens[idx + 1]])
+        if idx + 1 < len(tokens) and isinstance(tokens[idx], tuple) and isinstance(tokens[idx + 1], tuple):
+            termlhs = tokens[idx][0]
+            termrhs = tokens[idx + 1][0]
+            if is_compound_phrase(termlhs, termrhs):
+                lhs_start, lhs_stop = tokens[idx][1], tokens[idx][2]
+                rhs_start, rhs_stop = tokens[idx + 1][1], tokens[idx + 1][2]
+                new_tokens.append([(termlhs, lhs_start, lhs_stop),
+                                   (termrhs, rhs_start, rhs_stop)])
                 idx += 1
             else:
                 new_tokens.append(tokens[idx])
@@ -178,31 +197,35 @@ def tokenizer(text: str,
               stopwords_to_char: Optional[str],
               irregular_plural: bool,
               porter_version: Optional[int],
-              flatten: bool = True) -> List[str]:
+              flatten: bool = True) -> List[Tuple[str, int, int]]:
 
     def null_flattener(x):
         return x
 
-    def flat_applier(func, list_of_str):
-        return [func(x) for x in list_of_str]
+    def flat_applier(func, token_list: List[Tuple[str, int, int]]):
+        return [(func(tok), start, stop) for (tok, start, stop) in token_list]
 
-    def unflattened_applier(func, lst_of_str):
-        if isinstance(lst_of_str, list):
+    def unflattened_applier(func, token_list):
+        if isinstance(token_list, list):
             # Remove empty lists, convert single element lists to strings
             result = []
-            for item in lst_of_str:
-                item = unflattened_applier(func, item)
-                if isinstance(item, list):
-                    if len(item) == 1 and isinstance(item[0], str):
-                        result.append(item[0])
-                    elif len(item) > 1:
+            for item in token_list:
+                items = unflattened_applier(func, item)
+                if isinstance(items, list):
+                    if len(items) == 1 and isinstance(items[0], tuple):
+                        item = items[0]
                         result.append(item)
+                    elif len(items) > 0:
+                        result.append(items)
                 else:
-                    result.append(item)
+                    result.append((items[0], item[1], item[2]))
             return result
-        if not isinstance(lst_of_str, str):
-            raise ValueError(f"Expected list of strings, got {lst_of_str}")
-        return func(lst_of_str)
+        if not isinstance(token_list, tuple):
+            raise ValueError(f"Expected list of tokens, got {type(token_list)}")
+        token_result = func(token_list[0])
+        if isinstance(token_result, list):
+            return [(token, token_list[1], token_list[2]) for token in token_result]
+        return [(token_result, token_list[1], token_list[2])]
 
     flattener = null_flattener
     applier = unflattened_applier

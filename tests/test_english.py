@@ -1,147 +1,155 @@
+from typing import List, Tuple
 from lucytok import english
 import pytest
 import random
 
 
+def tokens_of(token_list):
+    if isinstance(token_list, list):
+        return [tokens_of(item) for item in token_list]
+    elif isinstance(token_list, tuple):
+        return token_list[0]
+    else:
+        raise ValueError("Unexpected data type")
+
+
 def test_ws_tokenizer():
     ws_tokenizer = english("NwN->NNN->l->NNNN->N")
-    assert ws_tokenizer('👍👎') == ['👍👎']
-    assert ws_tokenizer('Mary-had a little_lamb') == ['mary-had', 'a', 'little_lamb']
+    assert tokens_of(ws_tokenizer('👍👎')) == ['👍👎']
+    assert tokens_of(ws_tokenizer('Mary-had a little_lamb')) == ['mary-had', 'a', 'little_lamb']
 
 
 def test_std_tokenizer():
     std_tokenizer = english("NsN->NNN->l->NNNN->N")
-    assert std_tokenizer('👍👎') == ['👍', '👎']
+    assert tokens_of(std_tokenizer('👍👎')) == ['👍', '👎']
 
 
 def test_split_punctuation():
     ws_split_punct_tokenizer = english("NwN->pNN->l->NNNN->N")
-    assert ws_split_punct_tokenizer('Mary-had a little_lamb') == ['mary', 'had', 'a', 'little', 'lamb']
+    assert tokens_of(ws_split_punct_tokenizer('Mary-had a little_lamb')) == ['mary', 'had', 'a', 'little', 'lamb']
 
 
 def test_ascii_fold():
     ascii_fold = english("asN->NNN->l->NNNN->N")
     no_ascii_fold = english("NsN->NNN->l->NNNN->N")
-    assert ascii_fold("René") == ["rene"]
-    assert no_ascii_fold("René") == ["rené"]
-    assert (ascii_fold("àáâãäåçèéêëìíîïðñòóôõöøùúûüýþÿ")
+    assert tokens_of(ascii_fold("René")) == ["rene"]
+    assert tokens_of(no_ascii_fold("René")) == ["rené"]
+    assert (tokens_of(ascii_fold("àáâãäåçèéêëìíîïðñòóôõöøùúûüýþÿ"))
             == ['aaaaaaceeeeiiiidnoooooouuuuyty'])
 
 
 def test_split_on_case_change():
     split_on_case_change = english("NsN->NcN->l->NNNN->N")
     no_split_on_case_str = english("NsN->NNN->l->NNNN->N")
-    assert no_split_on_case_str("fooBar") == ["foobar"]
-    assert split_on_case_change("fooBar") == ["foo", "bar"]
+    assert tokens_of(no_split_on_case_str("fooBar")) == ["foobar"]
+    assert tokens_of(split_on_case_change("fooBar")) == ["foo", "bar"]
 
 
 def test_porter_stemmer():
     porter1 = english("NsN->NNN->l->NNNN->1")
     porter2 = english("NsN->NNN->l->NNNN->2")
     no_stem = english("NsN->NNN->l->NNNN->N")
-    assert porter1("1920s") == ["1920"]
-    assert porter2("1920s") == ["1920s"]
-    assert no_stem("running") == ["running"]
+    assert tokens_of(porter1("1920s")) == ["1920"]
+    assert tokens_of(porter2("1920s")) == ["1920s"]
+    assert tokens_of(no_stem("running")) == ["running"]
 
 
 def test_stopwords():
     stopwords = english("NsN->NNN->l->sNNN->N")
     no_stopwords = english("NsN->NNN->l->NNNN->N")
-    assert stopwords("the") == ["_"]
-    assert no_stopwords("the") == ["the"]
+    assert tokens_of(stopwords("the")) == ["_"]
+    assert tokens_of(no_stopwords("the")) == ["the"]
 
 
 def test_posessive():
     posessive = english("Nsp->NNN->l->NNNN->N")
     no_posessive = english("NsN->NNN->l->NNNN->N")
-    assert posessive("the's") == ["the"]
-    assert no_posessive("the") == ["the"]
+    assert tokens_of(posessive("the's")) == ["the"]
+    assert tokens_of(no_posessive("the")) == ["the"]
 
 
 def test_lower_case():
     lowercase = english("NsN->NNN->l->NNNN->N")
     no_lowercase = english("NsN->NNN->N->NNNN->N")
-    assert lowercase("The") == ["the"]
-    assert no_lowercase("The") == ["The"]
+    assert tokens_of(lowercase("The")) == ["the"]
+    assert tokens_of(no_lowercase("The")) == ["The"]
 
 
 def test_split_on_num():
     split_on_num = english("NsN->NNn->l->NNNN->N")
     no_split_on_sum = english("NsN->NNN->l->NNNN->N")
-    assert split_on_num("foo2thee") == ["foo", "2", "thee"]
-    assert no_split_on_sum("foo2thee") == ["foo2thee"]
+    assert tokens_of(split_on_num("foo2thee")) == ["foo", "2", "thee"]
+    assert tokens_of(no_split_on_sum("foo2thee")) == ["foo2thee"]
 
 
 def test_posessive_std():
     posessive_std = english("Nsp->NNN->l->NNNN->N")
-    assert posessive_std("cat's pajamas") == ["cat", "pajamas"]
+    assert tokens_of(posessive_std("cat's pajamas")) == ["cat", "pajamas"]
 
 
 def test_irregular_plurals():
     irreg_plurals = english("Nsp->NNN->l->NNNp->N")
     no_irreg_plurals = english("Nsp->NNN->l->NNNN->N")
-    assert irreg_plurals("people") == ["person"]
-    assert no_irreg_plurals("people") == ["people"]
+    assert tokens_of(irreg_plurals("people")) == ["person"]
+    assert tokens_of(no_irreg_plurals("people")) == ["people"]
 
 
 def test_compound_split():
     compound_split = english("Nsp->NNN->l->NcNN->N")
     no_compound_split = english("Nsp->NNN->l->NNNN->N")
-    assert compound_split("airplane") == ["air", "plane"]
-    assert compound_split("a big backpack airplane") == ["a", "big", "back", "pack", "air", "plane"]
-    assert no_compound_split("airplane") == ["airplane"]
+    assert tokens_of(compound_split("airplane")) == ["air", "plane"]
+    assert tokens_of(compound_split("a big backpack airplane")) == ["a", "big", "back", "pack", "air", "plane"]
+    assert tokens_of(no_compound_split("airplane")) == ["airplane"]
 
 
 def test_british_english():
     british = english("Nsp->NNN->l->NNbN->N")
     no_british = english("Nsp->NNN->l->NNNN->N")
-    assert british("aeroplane") == ["airplane"]
-    assert no_british("aeroplane") == ["aeroplane"]
+    assert tokens_of(british("aeroplane")) == ["airplane"]
+    assert tokens_of(no_british("aeroplane")) == ["aeroplane"]
 
 
 def test_compound_not_flattened():
     compound_split = english("Nsp->NNN->l->NcNN->N", flatten=False)
-    assert compound_split("a big backpack airplane") == ["a", "big", ["back", "pack"], ["air", "plane"]]
+    assert tokens_of(compound_split("a big backpack airplane")) ==\
+        ["a", "big", ["back", "pack"], ["air", "plane"]]
 
 
 def test_compound_num_not_flattened():
     compound_split = english("Nsp->NNn->l->NcNN->N", flatten=False)
-    assert compound_split("a big backpack2backpack airplane") == ["a", "big",
-                                                                  [["back", "pack"], "2", ["back", "pack"]],
-                                                                  ["air", "plane"]]
+    assert (tokens_of(compound_split("a big backpack2backpack airplane"))
+            == ["a", "big", [["back", "pack"], "2", ["back", "pack"]], ["air", "plane"]])
 
 
 def test_british_compound_num_not_flattened():
     compound_split = english("Nsp->NNn->l->NcbN->N", flatten=False)
-    assert compound_split("a big watercolour2backpack airplane") == ["a", "big",
-                                                                     [["water", "color"], "2", ["back", "pack"]],
-                                                                     ["air", "plane"]]
+    assert (tokens_of(
+        compound_split("a big watercolour2backpack airplane"))
+        == ["a", "big", [["water", "color"], "2", ["back", "pack"]], ["air", "plane"]])
 
 
 def test_compound_num_flattened():
     compound_split = english("Nsp->NNn->l->NcNN->N", flatten=True)
-    assert compound_split("a big backpack2backpack airplane") == ["a", "big",
-                                                                  "back", "pack", "2", "back", "pack",
-                                                                  "air", "plane"]
+    assert (tokens_of(compound_split("a big backpack2backpack airplane"))
+            == ["a", "big", "back", "pack", "2", "back", "pack", "air", "plane"])
 
 
 def test_everything_on():
     everything = english("asp->pcn->l->scbp->1")
     tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
-    assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_',
-                         'governor', '_', '_', 'plymouth', 'coloni']
+    assert tokens_of(tokenized) == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_',
+                                    'governor', '_', '_', 'plymouth', 'coloni']
 
 
 def test_everything_on_flattened_no_expansions():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
     tokenized = everything("How many years did William Bradford serve as Governor of the Plymouth Colony?")
-    assert tokenized == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_', 'governor',
-                         '_', '_', 'plymouth', 'coloni']
+    assert tokens_of(tokenized) == ['how', 'mani', 'year', 'did', 'william', 'bradford', 'serv', '_', 'governor', '_', '_', 'plymouth', 'coloni']
 
 
 def test_everything_on_unflattened_blanks_no_empty_lists():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
-    tokenized = everything("____________________ is considered the father of modern medicine.")
+    tokenized = tokens_of(everything("____________________ is considered the father of modern medicine."))
     for token in tokenized:
         assert token != []
 
@@ -149,38 +157,38 @@ def test_everything_on_unflattened_blanks_no_empty_lists():
 def test_compounds_with_stopwords():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
     tokenized = everything("another name for delzicol")
-    assert tokenized[0] == ['an', 'other']
+    assert tokens_of(tokenized[0]) == ['an', 'other']
 
 
 def test_compounds_gathers_phrases():
     compounds = english("asp->pcn->l->Ncbp->1", flatten=False)
-    tokenized = compounds("an other back pack on an air plane")
+    tokenized = tokens_of(compounds("an other back pack on an air plane"))
     assert tokenized == [['an', 'other'], ['back', 'pack'], 'on', 'an', ['air', 'plane']]
 
 
 def test_compounds_does_not_gather_phrases_when_flattening():
     compounds = english("asp->pcn->l->Ncbp->1", flatten=True)
-    tokenized = compounds("an other back pack on an air plane")
+    tokenized = tokens_of(compounds("an other back pack on an air plane"))
     assert tokenized == ['an', 'other', 'back', 'pack', 'on', 'an', 'air', 'plane']
 
 
 def test_single_char_not_consumed():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
-    tokenized = everything("what me2 fart")
+    tokenized = tokens_of(everything("what me2 fart"))
     assert tokenized == ['what', ['me', '2'], 'fart']
 
 
 def test_single_char_stopword_not_consumed():
     everything = english("asp->pcn->l->scbp->1", flatten=False)
-    tokenized = everything("what a2 fart")
+    tokenized = tokens_of(everything("what a2 fart"))
     assert tokenized == ['what', ['_', '2'], 'fart']
 
     everything_no_stop = english("asp->pcn->l->Ncbp->1", flatten=False)
-    tokenized = everything_no_stop("what a2 fart")
+    tokenized = tokens_of(everything_no_stop("what a2 fart"))
     assert tokenized == ['what', ['a', '2'], 'fart']
 
     everything_no_stop = english("asp->pcn->l->Ncbp->1", flatten=False)
-    tokenized = everything_no_stop("what the2 fart")
+    tokenized = tokens_of(everything_no_stop("what the2 fart"))
     assert tokenized == ['what', ['the', '2'], 'fart']
 
 
@@ -191,5 +199,5 @@ def test_random_strings(seed):
     tokenized = everything("".join(random.choices("abcdefghijklmnopqrstuvwxyz ", k=1000))
                            + " ".join(random.choices("abcdefghijklmnopqrstuvwxyz", k=1000)))
     assert isinstance(tokenized, list)
-    for token in tokenized:
+    for token in tokens_of(tokenized):
         assert token != []
