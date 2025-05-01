@@ -23,8 +23,8 @@ porterv1 = PorterStemmer()
 STAGE_DELIM = "->"
 
 TOKEN = 0
-START_OFFSET = 1
-END_OFFSET = 2
+START_OFFSET = 1  # First character
+END_OFFSET = 2  # Last character + 1
 
 
 punct_trans = str.maketrans({key: ' ' for key in string.punctuation})
