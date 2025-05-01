@@ -1,5 +1,6 @@
 from typing import List, Tuple
 from lucytok import english
+from lucytok.tokenizer import TOKEN, START_OFFSET, END_OFFSET
 import pytest
 import random
 
@@ -8,7 +9,16 @@ def tokens_of(token_list):
     if isinstance(token_list, list):
         return [tokens_of(item) for item in token_list]
     elif isinstance(token_list, tuple):
-        return token_list[0]
+        return token_list[TOKEN]
+    else:
+        raise ValueError("Unexpected data type")
+
+
+def offsets_of(token_list):
+    if isinstance(token_list, list):
+        return [offsets_of(item) for item in token_list]
+    elif isinstance(token_list, tuple):
+        return (token_list[START_OFFSET], token_list[END_OFFSET])
     else:
         raise ValueError("Unexpected data type")
 
@@ -17,6 +27,26 @@ def test_ws_tokenizer():
     ws_tokenizer = english("NwN->NNN->l->NNNN->N")
     assert tokens_of(ws_tokenizer('👍👎')) == ['👍👎']
     assert tokens_of(ws_tokenizer('Mary-had a little_lamb')) == ['mary-had', 'a', 'little_lamb']
+
+
+def test_ws_tokenizer_offsets():
+    ws_tokenizer = english("NwN->NNN->l->NNNN->N")
+    assert offsets_of(ws_tokenizer('👍👎')) == [(0, 2)]
+    mary_text = 'Mary-had a little_lamb'
+    offsets = offsets_of(ws_tokenizer('Mary-had a little_lamb'))
+    assert mary_text[slice(offsets[0][0], offsets[0][1])] == 'Mary-had'
+    assert mary_text[slice(offsets[1][0], offsets[1][1])] == 'a'
+    assert mary_text[slice(offsets[2][0], offsets[2][1])] == 'little_lamb'
+
+
+def test_std_tokenizer_offsets():
+    std_tokenizer = english("NsN->NNN->l->NNNN->N")
+    mary_text = 'Mary-had a little_lamb'
+    offsets = offsets_of(std_tokenizer('Mary-had a little_lamb'))
+    assert mary_text[slice(offsets[0][0], offsets[0][1])] == 'Mary'
+    assert mary_text[slice(offsets[1][0], offsets[1][1])] == 'had'
+    assert mary_text[slice(offsets[2][0], offsets[2][1])] == 'a'
+    assert mary_text[slice(offsets[3][0], offsets[3][1])] == 'little_lamb'
 
 
 def test_std_tokenizer():

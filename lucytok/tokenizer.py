@@ -24,7 +24,7 @@ STAGE_DELIM = "->"
 
 TOKEN = 0
 START_OFFSET = 1
-STOP_OFFSET = 2
+END_OFFSET = 2
 
 
 punct_trans = str.maketrans({key: ' ' for key in string.punctuation})
@@ -39,7 +39,7 @@ def flatten_list(sublist):
     for item in sublist:
         if isinstance(item[TOKEN], list):
             start = item[START_OFFSET]
-            stop = item[STOP_OFFSET]
+            stop = item[END_OFFSET]
             for token in item[TOKEN]:
                 flattened_list.append((token, start, stop))
         else:
@@ -108,13 +108,11 @@ def ws_tokenizer(text: str) -> List[Tuple[str, int, int]]:
     """
     tokens = []
     offset = 0
-    lastTokenOffset = 0
     for word in text.split():
-        start = text[lastTokenOffset:].find(word, offset)   # This is going to be slow!
+        start = text.find(word, offset)
         end = start + len(word)
-        lastTokenOffset = end
         tokens.append((word, start, end))
-        offset = end  # Continue searching after this token
+        offset = end
     return tokens
 
 
@@ -165,8 +163,8 @@ def group_neighbor_compounds(tokens):
             termlhs = tokens[idx][TOKEN]
             termrhs = tokens[idx + 1][TOKEN]
             if is_compound_phrase(termlhs, termrhs):
-                lhs_start, lhs_stop = tokens[idx][START_OFFSET], tokens[idx][STOP_OFFSET]
-                rhs_start, rhs_stop = tokens[idx + 1][START_OFFSET], tokens[idx + 1][STOP_OFFSET]
+                lhs_start, lhs_stop = tokens[idx][START_OFFSET], tokens[idx][END_OFFSET]
+                rhs_start, rhs_stop = tokens[idx + 1][START_OFFSET], tokens[idx + 1][END_OFFSET]
                 new_tokens.append([(termlhs, lhs_start, lhs_stop),
                                    (termrhs, rhs_start, rhs_stop)])
                 idx += 1
@@ -222,14 +220,14 @@ def tokenizer(text: str,
                     elif len(items) > 0:
                         result.append(items)
                 else:
-                    result.append((items[TOKEN], item[START_OFFSET], item[STOP_OFFSET]))
+                    result.append((items[TOKEN], item[START_OFFSET], item[END_OFFSET]))
             return result
         if not isinstance(token_list, tuple):
             raise ValueError(f"Expected list of tokens, got {type(token_list)}")
         token_result = func(token_list[TOKEN])
         if isinstance(token_result, list):
-            return [(token, token_list[START_OFFSET], token_list[STOP_OFFSET]) for token in token_result]
-        return [(token_result, token_list[START_OFFSET], token_list[STOP_OFFSET])]
+            return [(token, token_list[START_OFFSET], token_list[END_OFFSET]) for token in token_result]
+        return [(token_result, token_list[START_OFFSET], token_list[END_OFFSET])]
 
     flattener = null_flattener
     applier = unflattened_applier
